@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CleverTap Unsubscribe Flow</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .header-info {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .user-name {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-card .meta {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .controls > div {
+            flex: 1;
+        }
+
+        .controls h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .controls p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .logs {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .logs h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .log-table th {
+            background: #f5f5f5;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .log-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .log-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-badge.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-badge.failed {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .status-badge.pending {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .loader {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loader.show {
+            display: inline-block;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+            }
+
+            .log-table {
+                font-size: 11px;
+            }
+
+            .log-table th,
+            .log-table td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-info">
+                <h1>🚀 CleverTap Unsubscribe Flow</h1>
+                <p>Automated unsubscribe management for your customers</p>
+            </div>
+            <div class="user-section">
+                <div class="user-name">👤 {% if user %}{{ user.name }}{% else %}User{% endif %}</div>
+                <a href="/logout" class="logout-btn">Sign Out</a>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Pending</h3>
+                <div class="value" id="pending-count">-</div>
+                <div class="meta">Awaiting unsubscribe</div>
+            </div>
+            <div class="stat-card">
+                <h3>Completed</h3>
+                <div class="value" id="completed-count">-</div>
+                <div class="meta">Successfully processed</div>
+            </div>
+            <div class="stat-card">
+                <h3>Next Run</h3>
+                <div class="value" id="next-run" style="font-size: 16px; font-weight: normal;">-</div>
+                <div class="meta">Friday at 5 PM</div>
+            </div>
+            <div class="stat-card">
+                <h3>Scheduler Status</h3>
+                <div class="value" id="scheduler-status" style="font-size: 18px; color: #4caf50;">●</div>
+                <div class="meta">Background job running</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div>
+                <h3>Manual Trigger</h3>
+                <p>Run the unsubscribe process immediately without waiting for Friday</p>
+            </div>
+            <button id="trigger-btn" onclick="triggerUnsubscribe()">
+                <span id="trigger-loader" class="loader"></span>
+                Run Now
+            </button>
+        </div>
+
+        <div class="logs">
+            <h3>📋 Recent Activity</h3>
+            <table class="log-table" id="logs-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Customer ID</th>
+                        <th>Channel</th>
+                        <th>Status</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody id="logs-body">
+                    <tr>
+                        <td colspan="5" class="empty-state">
+                            <p>No activity yet. Logs will appear here when the process runs.</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+
+        async function updateStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/status`);
+                const data = await response.json();
+
+                // Update stats
+                document.getElementById('pending-count').textContent = data.pending;
+                document.getElementById('completed-count').textContent = data.completed;
+                document.getElementById('scheduler-status').textContent = data.scheduler_running ? '● Running' : '○ Stopped';
+                document.getElementById('scheduler-status').style.color = data.scheduler_running ? '#4caf50' : '#f44336';
+
+                // Format next run time
+                if (data.next_run !== 'Not scheduled') {
+                    const nextRun = new Date(data.next_run);
+                    const formatted = nextRun.toLocaleDateString() + ' ' + nextRun.toLocaleTimeString();
+                    document.getElementById('next-run').textContent = formatted;
+                } else {
+                    document.getElementById('next-run').textContent = 'Not scheduled';
+                }
+
+                // Update logs
+                updateLogsTable(data.recent_logs);
+            } catch (error) {
+                console.error('Error fetching status:', error);
+            }
+        }
+
+        function updateLogsTable(logs) {
+            const tbody = document.getElementById('logs-body');
+
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><p>No activity yet</p></td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = logs.map(log => `
+                <tr>
+                    <td>${new Date(log.timestamp).toLocaleString()}</td>
+                    <td>${log.cust_id}</td>
+                    <td>${log.channel}</td>
+                    <td>
+                        <span class="status-badge ${log.status.toLowerCase()}">
+                            ${log.status}
+                        </span>
+                    </td>
+                    <td>${log.message || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function triggerUnsubscribe() {
+            const btn = document.getElementById('trigger-btn');
+            const loader = document.getElementById('trigger-loader');
+
+            btn.disabled = true;
+            loader.classList.add('show');
+
+            try {
+                const response = await fetch(`${API_BASE}/trigger`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                updateLogsTable(data.logs);
+                updateStatus();
+
+                // Show success message
+                alert(`✅ Successfully processed ${data.logs.length} rows!`);
+            } catch (error) {
+                console.error('Error triggering unsubscribe:', error);
+                alert('❌ Error processing unsubscribes. Check console for details.');
+            } finally {
+                btn.disabled = false;
+                loader.classList.remove('show');
+            }
+        }
+
+        // Update status on page load and refresh every 30 seconds
+        updateStatus();
+        setInterval(updateStatus, 30000);
+    </script>
+</body>
+</html>

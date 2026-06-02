@@ -1,0 +1,10 @@
+Flask==2.3.0
+Flask-Login==0.6.2
+authlib==1.2.0
+google-auth-oauthlib==1.0.0
+google-auth-httplib2==0.1.1
+google-api-python-client==2.80.0
+requests==2.31.0
+APScheduler==3.10.4
+python-dotenv==1.0.0
+gunicorn==21.2.0
