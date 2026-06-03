@@ -1,6 +1,7 @@
 import os
 import logging
 from flask import Flask, jsonify, url_for, redirect
+from werkzeug.proxy_fix import ProxyFix
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
 app.config['PREFERRED_URL_SCHEME'] = 'https'
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 logger.info("[STARTUP] App initialized")
 
