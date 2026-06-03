@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
+app.config['PREFERRED_URL_SCHEME'] = 'https'
 
 logger.info("[STARTUP] App initialized")
 
