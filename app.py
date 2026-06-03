@@ -56,13 +56,47 @@ ALLOWED_EMAILS = os.getenv('ALLOWED_EMAILS', '').split(',') if os.getenv('ALLOWE
 unsubscribe_log = []
 scheduler = BackgroundScheduler()
 
+def load_service_account_credentials():
+    """Load service account credentials from file or environment variable"""
+    try:
+        # First, try to load from file (for local development)
+        if os.path.exists(SERVICE_ACCOUNT_FILE):
+            print(f"Loading service account from file: {SERVICE_ACCOUNT_FILE}")
+            return service_account.Credentials.from_service_account_file(
+                SERVICE_ACCOUNT_FILE,
+                scopes=['https://www.googleapis.com/auth/spreadsheets']
+            )
+
+        # If file doesn't exist, try to load from environment variable
+        service_account_json = os.getenv('SERVICE_ACCOUNT_JSON')
+        if service_account_json:
+            print("Loading service account from SERVICE_ACCOUNT_JSON environment variable")
+            service_account_dict = json.loads(service_account_json)
+            return service_account.Credentials.from_service_account_info(
+                service_account_dict,
+                scopes=['https://www.googleapis.com/auth/spreadsheets']
+            )
+
+        # If SERVICE_ACCOUNT_FILE is a path that might be set by Railway
+        if os.path.exists(SERVICE_ACCOUNT_FILE):
+            print(f"Loading service account from path: {SERVICE_ACCOUNT_FILE}")
+            return service_account.Credentials.from_service_account_file(
+                SERVICE_ACCOUNT_FILE,
+                scopes=['https://www.googleapis.com/auth/spreadsheets']
+            )
+
+        print(f"ERROR: Could not load service account credentials. File not found: {SERVICE_ACCOUNT_FILE}, and SERVICE_ACCOUNT_JSON not set")
+        return None
+    except Exception as e:
+        print(f"Error loading service account credentials: {e}")
+        return None
+
 def get_sheets_service():
     """Initialize Google Sheets service"""
     try:
-        creds = service_account.Credentials.from_service_account_file(
-            SERVICE_ACCOUNT_FILE,
-            scopes=['https://www.googleapis.com/auth/spreadsheets']
-        )
+        creds = load_service_account_credentials()
+        if not creds:
+            return None
         return build('sheets', 'v4', credentials=creds)
     except Exception as e:
         print(f"Error initializing Sheets service: {e}")
