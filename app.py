@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 import json
+import base64
 
 load_dotenv()
 
@@ -67,7 +68,27 @@ def load_service_account_credentials():
                 scopes=['https://www.googleapis.com/auth/spreadsheets']
             )
 
-        # If file doesn't exist, try to load from environment variable
+        # Try base64-encoded SERVICE_ACCOUNT_JSON_BASE64
+        service_account_json_b64 = os.getenv('SERVICE_ACCOUNT_JSON_BASE64')
+        if service_account_json_b64:
+            print("[INIT] Loading service account from SERVICE_ACCOUNT_JSON_BASE64 (base64 encoded)")
+            try:
+                service_account_json = base64.b64decode(service_account_json_b64).decode('utf-8')
+                print("[INIT] ✓ Successfully decoded base64")
+                service_account_dict = json.loads(service_account_json)
+                print("[INIT] ✓ Successfully parsed SERVICE_ACCOUNT_JSON")
+                creds = service_account.Credentials.from_service_account_info(
+                    service_account_dict,
+                    scopes=['https://www.googleapis.com/auth/spreadsheets']
+                )
+                print("[INIT] ✓ Successfully created credentials from service account")
+                return creds
+            except Exception as e:
+                print(f"[INIT] ✗ Error with base64 decoding: {e}")
+                import traceback
+                traceback.print_exc()
+
+        # If file doesn't exist, try to load from raw JSON environment variable
         service_account_json = os.getenv('SERVICE_ACCOUNT_JSON')
         if service_account_json:
             print("[INIT] Loading service account from SERVICE_ACCOUNT_JSON environment variable")
@@ -91,7 +112,7 @@ def load_service_account_credentials():
                 traceback.print_exc()
                 return None
 
-        print("[INIT] ✗ ERROR: SERVICE_ACCOUNT_JSON not set and file not found: {SERVICE_ACCOUNT_FILE}")
+        print("[INIT] ✗ ERROR: Neither SERVICE_ACCOUNT_JSON, SERVICE_ACCOUNT_JSON_BASE64, nor file found")
         return None
     except Exception as e:
         print(f"[INIT] ✗ Unexpected error loading service account: {e}")
