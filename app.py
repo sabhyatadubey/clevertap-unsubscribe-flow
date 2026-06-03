@@ -61,7 +61,7 @@ def load_service_account_credentials():
     try:
         # First, try to load from file (for local development)
         if os.path.exists(SERVICE_ACCOUNT_FILE):
-            print(f"Loading service account from file: {SERVICE_ACCOUNT_FILE}")
+            print(f"[INIT] Loading service account from file: {SERVICE_ACCOUNT_FILE}")
             return service_account.Credentials.from_service_account_file(
                 SERVICE_ACCOUNT_FILE,
                 scopes=['https://www.googleapis.com/auth/spreadsheets']
@@ -70,25 +70,33 @@ def load_service_account_credentials():
         # If file doesn't exist, try to load from environment variable
         service_account_json = os.getenv('SERVICE_ACCOUNT_JSON')
         if service_account_json:
-            print("Loading service account from SERVICE_ACCOUNT_JSON environment variable")
-            service_account_dict = json.loads(service_account_json)
-            return service_account.Credentials.from_service_account_info(
-                service_account_dict,
-                scopes=['https://www.googleapis.com/auth/spreadsheets']
-            )
+            print("[INIT] Loading service account from SERVICE_ACCOUNT_JSON environment variable")
+            print(f"[INIT] JSON length: {len(service_account_json)} characters")
+            try:
+                service_account_dict = json.loads(service_account_json)
+                print("[INIT] ✓ Successfully parsed SERVICE_ACCOUNT_JSON")
+                creds = service_account.Credentials.from_service_account_info(
+                    service_account_dict,
+                    scopes=['https://www.googleapis.com/auth/spreadsheets']
+                )
+                print("[INIT] ✓ Successfully created credentials from service account")
+                return creds
+            except json.JSONDecodeError as e:
+                print(f"[INIT] ✗ JSON parsing error: {e}")
+                print(f"[INIT] First 200 chars of JSON: {service_account_json[:200]}")
+                return None
+            except Exception as e:
+                print(f"[INIT] ✗ Error creating credentials: {e}")
+                import traceback
+                traceback.print_exc()
+                return None
 
-        # If SERVICE_ACCOUNT_FILE is a path that might be set by Railway
-        if os.path.exists(SERVICE_ACCOUNT_FILE):
-            print(f"Loading service account from path: {SERVICE_ACCOUNT_FILE}")
-            return service_account.Credentials.from_service_account_file(
-                SERVICE_ACCOUNT_FILE,
-                scopes=['https://www.googleapis.com/auth/spreadsheets']
-            )
-
-        print(f"ERROR: Could not load service account credentials. File not found: {SERVICE_ACCOUNT_FILE}, and SERVICE_ACCOUNT_JSON not set")
+        print("[INIT] ✗ ERROR: SERVICE_ACCOUNT_JSON not set and file not found: {SERVICE_ACCOUNT_FILE}")
         return None
     except Exception as e:
-        print(f"Error loading service account credentials: {e}")
+        print(f"[INIT] ✗ Unexpected error loading service account: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def get_sheets_service():
@@ -336,18 +344,30 @@ def get_pending():
     return jsonify(pending)
 
 if __name__ == '__main__':
+    print("[STARTUP] Starting CleverTap Unsubscribe Flow Flask app...")
+
     # Start scheduler
-    schedule_friday_eod()
-    scheduler.start()
+    try:
+        schedule_friday_eod()
+        scheduler.start()
+        print("[STARTUP] ✓ Scheduler started successfully")
+    except Exception as e:
+        print(f"[STARTUP] ✗ Error starting scheduler: {e}")
+        import traceback
+        traceback.print_exc()
 
     # Determine environment
     is_production = os.getenv('RAILWAY_ENVIRONMENT') is not None
     debug_mode = not is_production
 
+    print(f"[STARTUP] Environment: {'PRODUCTION' if is_production else 'DEVELOPMENT'}")
+
     if is_production:
         # Production: Railway will handle port via PORT env var
         port = int(os.getenv('PORT', 8000))
+        print(f"[STARTUP] Starting Flask on 0.0.0.0:{port}")
         app.run(host='0.0.0.0', port=port, debug=False)
     else:
         # Development: localhost
+        print(f"[STARTUP] Starting Flask in debug mode on localhost:8000")
         app.run(debug=True, port=8000)
