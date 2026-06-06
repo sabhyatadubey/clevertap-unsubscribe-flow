@@ -1,250 +1,71 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CleverTap Unsubscribe Dashboard</title>
+    <title>CleverTap Unsubscribe</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .header h1 {
-            font-size: 24px;
-            font-weight: 600;
-        }
-        .header-right {
-            text-align: right;
-        }
-        .header-email {
-            font-size: 14px;
-            opacity: 0.9;
-            margin-bottom: 10px;
-        }
-        .logout-btn {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-        .logout-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-        .content {
-            padding: 30px;
-        }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .stat-card {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            border-left: 4px solid #667eea;
-        }
-        .stat-number {
-            font-size: 28px;
-            font-weight: bold;
-            color: #667eea;
-            margin: 10px 0;
-        }
-        .stat-label {
-            font-size: 14px;
-            color: #666;
-        }
-        .section-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin: 30px 0 20px 0;
-            color: #333;
-        }
-        .action-buttons {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-        .table-wrapper {
-            overflow-x: auto;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        thead {
-            background: #f8f9fa;
-            border-bottom: 2px solid #e9ecef;
-        }
-        th {
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-            color: #333;
-            font-size: 14px;
-        }
-        td {
-            padding: 12px;
-            border-bottom: 1px solid #e9ecef;
-            font-size: 14px;
-            color: #555;
-        }
-        tr:hover {
-            background: #f8f9fa;
-        }
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .status-pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-        .status-updated {
-            background: #d4edda;
-            color: #155724;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #999;
-        }
-        .empty-state-icon {
-            font-size: 48px;
-            margin-bottom: 10px;
-        }
+        body { font-family: Arial, sans-serif; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .header-right { text-align: right; }
+        .logout-btn { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 8px 16px; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; }
+        .content { padding: 30px; }
+        .card { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #667eea; }
+        .btn { background: #667eea; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+        .btn:hover { background: #5568d3; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .status { margin-top: 20px; padding: 12px; border-radius: 6px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div>
-                <h1>CleverTap Unsubscribe</h1>
-            </div>
+            <div><h1>🚀 CleverTap Unsubscribe</h1></div>
             <div class="header-right">
-                <div class="header-email">{{ email }}</div>
-                <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+                <div style="opacity: 0.9; margin-bottom: 10px;">{{ email }}</div>
+                <a href="/logout" class="logout-btn">Sign Out</a>
             </div>
         </div>
 
         <div class="content">
-            <!-- Stats -->
-            <div class="stats">
-                <div class="stat-card">
-                    <div class="stat-label">Pending Requests</div>
-                    <div class="stat-number">{{ pending|length }}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Status</div>
-                    <div class="stat-number">Active ✓</div>
-                </div>
+            <div class="card">
+                <h2>Manual Trigger</h2>
+                <p>Process all pending unsubscribe requests immediately:</p>
+                <button class="btn" id="processBtn" onclick="processNow()">Process Now</button>
+                <div id="status"></div>
             </div>
 
-            <!-- Action Buttons -->
-            <div class="action-buttons">
-                <button class="btn btn-primary" onclick="processNow()">Process Now</button>
+            <div class="card">
+                <h2>Recent Activity</h2>
+                <p>Processing logs will appear here</p>
             </div>
-
-            <!-- Pending Requests Table -->
-            <div class="section-title">Pending Unsubscribe Requests</div>
-            {% if pending %}
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Email</th>
-                                <th>Channel</th>
-                                <th>Status</th>
-                                <th>User ID</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in pending %}
-                                <tr>
-                                    <td>{{ item.email }}</td>
-                                    <td>{{ item.channel }}</td>
-                                    <td>
-                                        <span class="status-badge {% if item.status == 'Updated' %}status-updated{% else %}status-pending{% endif %}">
-                                            {{ item.status }}
-                                        </span>
-                                    </td>
-                                    <td>{{ item.user_id }}</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="empty-state">
-                    <div class="empty-state-icon">📭</div>
-                    <p>No pending unsubscribe requests</p>
-                </div>
-            {% endif %}
         </div>
     </div>
 
     <script>
         function processNow() {
-            if (confirm('Process all pending unsubscribe requests now?')) {
-                fetch('/api/trigger', { method: 'POST' })
-                    .then(r => r.json())
-                    .then(data => {
-                        alert(data.message || 'Processing started');
-                        location.reload();
-                    })
-                    .catch(e => alert('Error: ' + e));
-            }
+            const btn = document.getElementById('processBtn');
+            const statusDiv = document.getElementById('status');
+
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+            statusDiv.innerHTML = '';
+
+            fetch('/api/trigger', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    statusDiv.innerHTML = '<div class="status success">✓ ' + (data.message || 'Processing complete') + '</div>';
+                    btn.disabled = false;
+                    btn.textContent = 'Process Now';
+                    setTimeout(() => location.reload(), 2000);
+                })
+                .catch(e => {
+                    statusDiv.innerHTML = '<div class="status error">✗ Error: ' + e.message + '</div>';
+                    btn.disabled = false;
+                    btn.textContent = 'Process Now';
+                });
         }
     </script>
 </body>
