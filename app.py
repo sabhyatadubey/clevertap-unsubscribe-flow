@@ -220,9 +220,11 @@ def update_sheet_status(email, status):
         return False
 
 @app.route('/api/trigger', methods=['POST'])
-@login_required
 def trigger():
     """Manually trigger unsubscribe processing"""
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Unauthorized'}), 401
+
     try:
         pending = get_pending_unsubscribes()
         processed = 0
@@ -233,9 +235,7 @@ def trigger():
                 email = item['email']
                 channel = item['channel']
 
-                # Send to CleverTap
                 if send_to_clevertap(email, channel, item.get('user_id', '')):
-                    # Update sheet status
                     if update_sheet_status(email, 'Updated'):
                         processed += 1
                     else:
@@ -244,7 +244,7 @@ def trigger():
                     failed += 1
 
         return jsonify({
-            'message': f'Processing complete. {processed} processed, {failed} failed.',
+            'message': f'Success! {processed} processed, {failed} failed',
             'processed': processed,
             'failed': failed
         }), 200
