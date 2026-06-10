@@ -15,7 +15,9 @@ A Flask web application for managing CleverTap unsubscribe requests with Google 
 - Google Sheets interface for managing unsubscribe requests
 - CleverTap API integration for processing unsubscribes
 - Manual trigger for instant processing
-- Automatic scheduling (Friday 5 PM) via APScheduler
+- Automatic scheduling (Friday 5 PM Gulf time) via Vercel Cron
+- Retry logic (3 attempts with backoff) for CleverTap API calls
+- Error logging throughout (visible in Vercel function logs)
 - Dashboard with real-time statistics
 
 ---
@@ -26,7 +28,7 @@ A Flask web application for managing CleverTap unsubscribe requests with Google 
 **Hosting:** Vercel (serverless functions)  
 **Authentication:** Gmail OAuth 2.0 via Authlib  
 **Database:** Google Sheets API  
-**Scheduler:** APScheduler (background jobs)
+**Scheduler:** Vercel Cron → `/api/cron` (APScheduler doesn't work on serverless — functions don't stay alive between requests)
 
 ### Key File Structure
 
@@ -43,15 +45,18 @@ vercel.json            - Vercel deployment config
 ## Environment Variables Required
 
 ```
-SECRET_KEY=clevertap-unsubscribe-flow-secret-key-2026
-GOOGLE_CLIENT_ID=86690803239-fj3d8mdfjd2kf0finktduqr77dhlm7mq.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=[GET FROM GOOGLE CLOUD]
-CLEVERTAP_PROJECT_ID=RKW-W4K-KK6Z
-CLEVERTAP_PASSCODE=EHW-QAB-GLUL
-SHEET_ID=11-gmht1OU586CE3kCak4pj7uug8LAZcITjX0OShgD9M
+SECRET_KEY=[RANDOM STRING - e.g. openssl rand -hex 32]
+GOOGLE_CLIENT_ID=[GET FROM GOOGLE CLOUD CONSOLE - OAuth 2.0 Client IDs]
+GOOGLE_CLIENT_SECRET=[GET FROM GOOGLE CLOUD CONSOLE]
+CLEVERTAP_PROJECT_ID=[GET FROM CLEVERTAP DASHBOARD - Settings]
+CLEVERTAP_PASSCODE=[GET FROM CLEVERTAP DASHBOARD - Settings]
+SHEET_ID=[FROM THE GOOGLE SHEET URL]
 SERVICE_ACCOUNT_JSON_BASE64=[BASE64 ENCODED SERVICE ACCOUNT JSON]
+CRON_SECRET=[RANDOM SECRET - Vercel sends it as "Authorization: Bearer <secret>" on cron runs]
 PORT=8001
 ```
+
+> ⚠️ This repo is public — never commit real values here. All real values live in local `.env` and Vercel env vars only.
 
 ---
 
@@ -89,7 +94,7 @@ Visit: http://localhost:8001
 ### OAuth 2.0 Client Credentials
 
 1. Google Cloud Console → APIs & Services → Credentials
-2. OAuth 2.0 Client ID: `86690803239-fj3d8mdfjd2kf0finktduqr77dhlm7mq.apps.googleusercontent.com`
+2. OAuth 2.0 Client ID: see `GOOGLE_CLIENT_ID` in `.env`
 3. Redirect URIs:
    - `http://localhost:8001/authorize` (local)
    - `http://localhost:8000/authorize` (local)
@@ -130,8 +135,7 @@ Data rows start from Row 2.
 
 ## CleverTap Integration
 
-**Project ID:** RKW-W4K-KK6Z  
-**Passcode:** EHW-QAB-GLUL  
+**Project ID / Passcode:** in CleverTap Dashboard → Settings (stored in `.env` / Vercel env vars)  
 **API Endpoint:** https://api.clevertap.com/1/upload
 
 ### Payload Format
@@ -208,6 +212,10 @@ curl -X POST https://clevertap-unsubscribe-flow.vercel.app/api/trigger
   "failed": 0
 }
 ```
+
+### GET /api/cron
+Scheduled processing endpoint (Vercel Cron hits this Friday 5 PM Gulf time / 13:00 UTC).
+Requires header `Authorization: Bearer <CRON_SECRET>` — Vercel sends this automatically when the CRON_SECRET env var is set in the project.
 
 ### GET /logout
 Sign out and redirect to login
@@ -293,11 +301,15 @@ kill -9 <PID>
 
 ## Next Steps (Optional Enhancements)
 
-1. **APScheduler Setup** - Add automatic Friday 5 PM processing
-2. **Error Logging** - Add comprehensive error tracking
-3. **Retry Logic** - Handle failed CleverTap API calls
-4. **Audit Trail** - Log all unsubscribe operations
+1. ~~**Scheduler Setup**~~ ✅ Done - Vercel Cron hits `/api/cron` every Friday 13:00 UTC (5 PM Gulf time)
+2. ~~**Error Logging**~~ ✅ Done - All errors logged (view in Vercel → Deployments → Function Logs)
+3. ~~**Retry Logic**~~ ✅ Done - CleverTap calls retry up to 3 times with exponential backoff
+4. **Audit Trail** - Log all unsubscribe operations to a separate sheet tab
 5. **Rate Limiting** - Prevent API abuse
+
+**⚠️ Action needed:**
+- Set `CRON_SECRET` env var in Vercel (any random string) so scheduled runs are authorized
+- The local `.env` service account key is invalid (`invalid_grant: Invalid JWT Signature`) - download a fresh key from Google Cloud Console and re-encode it
 
 ---
 

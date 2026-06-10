@@ -1,6 +1,8 @@
 import os
 import json
+import time
 import base64
+import logging
 import requests
 from flask import Flask, render_template_string, redirect, url_for, jsonify, request
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -11,6 +13,9 @@ from googleapiclient.discovery import build
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+logger = logging.getLogger('unsubscribe-flow')
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
@@ -51,7 +56,8 @@ def get_sheets_service():
             scopes=['https://www.googleapis.com/auth/spreadsheets']
         )
         return build('sheets', 'v4', credentials=credentials)
-    except:
+    except Exception:
+        logger.exception('Failed to build Google Sheets service - check SERVICE_ACCOUNT_JSON_BASE64')
         return None
 
 def get_unsubscribe_stats():
@@ -59,6 +65,7 @@ def get_unsubscribe_stats():
         sheets = get_sheets_service()
         sheet_id = os.getenv('SHEET_ID')
         if not sheets or not sheet_id:
+            logger.warning('Sheets service or SHEET_ID unavailable - returning empty stats')
             return {'total_pending': 0, 'completed': 0, 'activity': []}
 
         result = sheets.spreadsheets().values().get(
@@ -72,14 +79,14 @@ def get_unsubscribe_stats():
         activity = []
 
         for row in rows:
-            if len(row) >= 4:
+            if len(row) >= 2:
                 status = row[3] if len(row) > 3 else 'Not Updated'
                 if status.lower() == 'updated':
                     completed += 1
                 else:
                     pending += 1
                 activity.append({
-                    'email': row[1] if len(row) > 1 else '',
+                    'email': row[1],
                     'channel': row[2] if len(row) > 2 else '',
                     'status': status
                 })
@@ -87,33 +94,51 @@ def get_unsubscribe_stats():
         return {
             'total_pending': pending,
             'completed': completed,
-            'activity': activity[-10:]
+            'activity': activity,
+            'recent': activity[-10:]
         }
-    except:
-        return {'total_pending': 0, 'completed': 0, 'activity': []}
+    except Exception:
+        logger.exception('Failed to read stats from Google Sheet')
+        return {'total_pending': 0, 'completed': 0, 'activity': [], 'recent': []}
 
-def send_to_clevertap(cust_id, channel):
+def send_to_clevertap(cust_id, channel, max_attempts=3):
+    project_id = os.getenv('CLEVERTAP_PROJECT_ID')
+    passcode = os.getenv('CLEVERTAP_PASSCODE')
+    if not project_id or not passcode:
+        logger.error('CLEVERTAP_PROJECT_ID or CLEVERTAP_PASSCODE not set')
+        return False
+    url = 'https://api.clevertap.com/1/upload'
     try:
-        project_id = os.getenv('CLEVERTAP_PROJECT_ID')
-        passcode = os.getenv('CLEVERTAP_PASSCODE')
-        if not project_id or not passcode:
-            return False
-        url = 'https://api.clevertap.com/1/upload'
         payload = {
             'd': [{
                 'customer_id': int(cust_id),
                 'unsubscribe': {channel.lower(): 1}
             }]
         }
-        headers = {
-            'X-CleverTap-Account-ID': project_id,
-            'X-CleverTap-Passcode': passcode,
-            'Content-Type': 'application/json'
-        }
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
-        return response.status_code == 200
-    except:
+    except (ValueError, TypeError):
+        logger.error('Invalid cust_id %r - must be numeric', cust_id)
         return False
+    headers = {
+        'X-CleverTap-Account-ID': project_id,
+        'X-CleverTap-Passcode': passcode,
+        'Content-Type': 'application/json'
+    }
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
+            if response.status_code == 200:
+                logger.info('CleverTap unsubscribe OK for cust_id=%s channel=%s', cust_id, channel)
+                return True
+            logger.warning('CleverTap returned %s for cust_id=%s (attempt %d/%d): %s',
+                           response.status_code, cust_id, attempt, max_attempts, response.text[:200])
+            if 400 <= response.status_code < 500:
+                return False
+        except requests.RequestException:
+            logger.exception('CleverTap request failed for cust_id=%s (attempt %d/%d)',
+                             cust_id, attempt, max_attempts)
+        if attempt < max_attempts:
+            time.sleep(2 ** (attempt - 1))
+    return False
 
 def update_sheet_status(cust_id, new_status='Updated'):
     try:
@@ -137,7 +162,8 @@ def update_sheet_status(cust_id, new_status='Updated'):
                 ).execute()
                 return True
         return False
-    except:
+    except Exception:
+        logger.exception('Failed to update sheet status for cust_id=%s', cust_id)
         return False
 
 def render_dashboard_html(email, total_pending, completed, activity):
@@ -275,23 +301,45 @@ def dashboard():
         current_user.email,
         stats['total_pending'],
         stats['completed'],
-        stats['activity']
+        stats.get('recent', [])
     )
     return html
+
+def process_pending_unsubscribes():
+    stats = get_unsubscribe_stats()
+    pending_rows = [row for row in stats.get('activity', []) if row['status'].lower() != 'updated']
+    logger.info('Processing %d pending unsubscribes', len(pending_rows))
+    processed = 0
+    failed = 0
+    for item in pending_rows:
+        cust_id = item['email']
+        channel = item['channel']
+        if send_to_clevertap(cust_id, channel) and update_sheet_status(cust_id, 'Updated'):
+            processed += 1
+        else:
+            failed += 1
+    logger.info('Run complete: %d processed, %d failed', processed, failed)
+    return processed, failed
 
 @app.route('/api/trigger', methods=['POST'])
 @login_required
 def trigger():
-    stats = get_unsubscribe_stats()
-    pending_rows = [row for row in stats.get('activity', []) if row['status'].lower() != 'updated']
-    processed = 0
-    for item in pending_rows:
-        cust_id = item['email']
-        channel = item['channel']
-        if send_to_clevertap(cust_id, channel):
-            if update_sheet_status(cust_id, 'Updated'):
-                processed += 1
-    return jsonify({'message': f'{processed} processed', 'processed': processed}), 200
+    processed, failed = process_pending_unsubscribes()
+    return jsonify({
+        'message': f'Success! {processed} processed, {failed} failed',
+        'processed': processed,
+        'failed': failed
+    }), 200
+
+@app.route('/api/cron', methods=['GET', 'POST'])
+def cron():
+    cron_secret = os.getenv('CRON_SECRET')
+    auth_header = request.headers.get('Authorization', '')
+    if not cron_secret or auth_header != f'Bearer {cron_secret}':
+        logger.warning('Unauthorized cron request')
+        return jsonify({'error': 'Unauthorized'}), 401
+    processed, failed = process_pending_unsubscribes()
+    return jsonify({'processed': processed, 'failed': failed}), 200
 
 @app.route('/logout')
 def logout():

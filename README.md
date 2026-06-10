@@ -44,9 +44,9 @@ clevertap-unsubscribe-flow/
 Create a `.env` file with:
 
 ```
-CLEVERTAP_PROJECT_ID=RKW-W4K-KK6Z
-CLEVERTAP_PASSCODE=EHW-QAB-GLUL
-SHEET_ID=11-gmht1OU586CE3kCak4pj7uug8LAZcITjX0OShgD9M
+CLEVERTAP_PROJECT_ID=[your-clevertap-project-id]
+CLEVERTAP_PASSCODE=[your-clevertap-passcode]
+SHEET_ID=[your-sheet-id]
 SERVICE_ACCOUNT_FILE=service_account.json
 ```
 

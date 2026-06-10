@@ -100,9 +100,9 @@ Go back to Google Cloud Console:
 In Railway dashboard, go to **Variables** and add:
 
 ```
-CLEVERTAP_PROJECT_ID=RKW-W4K-KK6Z
-CLEVERTAP_PASSCODE=EHW-QAB-GLUL
-SHEET_ID=11-gmht1OU586CE3kCak4pj7uug8LAZcITjX0OShgD9M
+CLEVERTAP_PROJECT_ID=[your-clevertap-project-id]
+CLEVERTAP_PASSCODE=[your-clevertap-passcode]
+SHEET_ID=[your-sheet-id]
 GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your_client_secret
 ALLOWED_EMAILS=user1@gmail.com,user2@gmail.com,user3@gmail.com

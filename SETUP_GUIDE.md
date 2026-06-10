@@ -62,7 +62,7 @@ This allows the app to read and update your Google Sheet securely.
 
 1. Open the downloaded `service_account.json` file in a text editor
 2. Find and copy the `client_email` value (looks like `xxx@xxx.iam.gserviceaccount.com`)
-3. Go to your Google Sheet: https://docs.google.com/spreadsheets/d/11-gmht1OU586CE3kCak4pj7uug8LAZcITjX0OShgD9M/edit
+3. Go to your Google Sheet: https://docs.google.com/spreadsheets/d/[your-sheet-id]/edit
 4. Click **Share** (top right)
 5. Paste the email address
 6. Give it **Editor** access
@@ -79,9 +79,9 @@ This allows the app to read and update your Google Sheet securely.
 
 2. Open `.env` and verify the values:
    ```
-   CLEVERTAP_PROJECT_ID=RKW-W4K-KK6Z
-   CLEVERTAP_PASSCODE=EHW-QAB-GLUL
-   SHEET_ID=11-gmht1OU586CE3kCak4pj7uug8LAZcITjX0OShgD9M
+   CLEVERTAP_PROJECT_ID=[your-clevertap-project-id]
+   CLEVERTAP_PASSCODE=[your-clevertap-passcode]
+   SHEET_ID=[your-sheet-id]
    SERVICE_ACCOUNT_FILE=service_account.json
    ```
 
