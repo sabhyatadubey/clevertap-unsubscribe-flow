@@ -1,30 +1,22 @@
 import os
-import logging
-import base64
 import json
+import base64
 import requests
-from datetime import datetime
-from flask import Flask, jsonify, url_for, redirect, render_template
+from flask import Flask, render_template, redirect, url_for, jsonify, request
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 from authlib.integrations.flask_client import OAuth
 from google.oauth2 import service_account
-from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
 
 load_dotenv()
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
-logger.info("[STARTUP] App initialized")
-
-# Flask-Login Setup
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -38,7 +30,6 @@ class User(UserMixin):
 def load_user(user_id):
     return User(user_id)
 
-# OAuth Setup
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
@@ -48,14 +39,38 @@ google = oauth.register(
     client_kwargs={'scope': 'openid email profile'}
 )
 
-# Google Sheets Helper
-def get_sheets_service():
-    """Get authorized Google Sheets service using service account"""
-    service_account_json_b64 = os.getenv('SERVICE_ACCOUNT_JSON_BASE64')
-    if not service_account_json_b64:
-        return None
+@app.route('/')
+def index():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
 
+@app.route('/login')
+def login():
+    # For localhost testing - skip OAuth, direct login
+    if 'localhost' in request.host or '127.0.0.1' in request.host:
+        login_user(User('sabhy@justlife.com'))
+        return redirect(url_for('dashboard'))
+    return google.authorize_redirect(url_for('authorize', _external=True, _scheme='https'))
+
+@app.route('/authorize')
+def authorize():
     try:
+        token = google.authorize_access_token()
+        email = token.get('userinfo', {}).get('email', '')
+        if not email.endswith('@justlife.com'):
+            return {'error': 'Access denied'}, 403
+        login_user(User(email))
+        return redirect(url_for('dashboard'))
+    except Exception as e:
+        return {'error': str(e)}, 400
+
+def get_sheets_service():
+    """Get Google Sheets service from credentials"""
+    try:
+        service_account_json_b64 = os.getenv('SERVICE_ACCOUNT_JSON_BASE64')
+        if not service_account_json_b64:
+            return None
         service_account_json = base64.b64decode(service_account_json_b64).decode('utf-8')
         service_account_info = json.loads(service_account_json)
         credentials = service_account.Credentials.from_service_account_info(
@@ -63,103 +78,73 @@ def get_sheets_service():
             scopes=['https://www.googleapis.com/auth/spreadsheets']
         )
         return build('sheets', 'v4', credentials=credentials)
-    except Exception as e:
-        logger.error(f"Error getting Sheets service: {e}")
+    except:
         return None
 
-def get_pending_unsubscribes():
-    """Read pending unsubscribe requests from Google Sheets"""
-    sheets_service = get_sheets_service()
-    if not sheets_service:
-        return []
-
+def get_unsubscribe_stats():
+    """Get unsubscribe stats from Google Sheets"""
     try:
+        sheets = get_sheets_service()
         sheet_id = os.getenv('SHEET_ID')
-        if not sheet_id:
-            return []
+        if not sheets or not sheet_id:
+            return {'total_pending': 0, 'completed': 0, 'activity': []}
 
-        # Read from Sheet1 (assuming format: Email | Channel | Status)
-        result = sheets_service.spreadsheets().values().get(
+        result = sheets.spreadsheets().values().get(
             spreadsheetId=sheet_id,
             range='Sheet1!A2:D'
         ).execute()
 
         rows = result.get('values', [])
-        unsubscribes = []
+        pending = 0
+        completed = 0
+        activity = []
 
         for row in rows:
-            if len(row) >= 3:
-                unsubscribes.append({
-                    'email': row[0],
-                    'channel': row[1],
-                    'status': row[2],
-                    'user_id': row[3] if len(row) > 3 else ''
+            if len(row) >= 4:
+                # Sheet structure: Date | Cust ID | Unsubscribe channel | Status
+                # Column indices: [0]    [1]       [2]                   [3]
+                status = row[3] if len(row) > 3 else 'Not Updated'
+                if status.lower() == 'updated':
+                    completed += 1
+                else:
+                    pending += 1
+                activity.append({
+                    'email': row[1] if len(row) > 1 else '',  # Cust ID
+                    'channel': row[2] if len(row) > 2 else '',  # Unsubscribe channel
+                    'status': status
                 })
 
-        return unsubscribes
+        return {
+            'total_pending': pending,
+            'completed': completed,
+            'activity': activity[-10:]  # Last 10 entries
+        }
     except Exception as e:
-        logger.error(f"Error reading Google Sheets: {e}")
-        return []
-
-@app.route('/health')
-def health():
-    return {'status': 'ok'}, 200
-
-@app.route('/')
-def index():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    return {'message': 'App is running - OAuth ready!'}, 200
-
-@app.route('/login')
-def login():
-    redirect_uri = url_for('authorize', _external=True, _scheme='https')
-    return google.authorize_redirect(redirect_uri)
-
-@app.route('/authorize')
-def authorize():
-    try:
-        token = google.authorize_access_token()
-        user_info = token.get('userinfo')
-        email = user_info.get('email', '') if user_info else 'Unknown'
-
-        # Check if email is @justlife.com
-        if not email.endswith('@justlife.com'):
-            return {'error': 'Access denied: Only @justlife.com emails allowed'}, 403
-
-        # Create user session
-        user = User(email)
-        login_user(user)
-
-        return redirect(url_for('dashboard'))
-    except Exception as e:
-        logger.error(f"Authorization error: {e}")
-        return {'error': str(e)}, 400
+        print(f"Error in get_unsubscribe_stats: {e}")
+        return {'total_pending': 0, 'completed': 0, 'activity': []}
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    pending = get_pending_unsubscribes()
-    return render_template('dashboard.html', email=current_user.email, pending=pending)
+    stats = get_unsubscribe_stats()
+    return render_template('dashboard.html', email=current_user.email, **stats)
 
-def send_to_clevertap(email, channel, user_id=''):
+def send_to_clevertap(cust_id, channel):
     """Send unsubscribe request to CleverTap"""
     try:
         project_id = os.getenv('CLEVERTAP_PROJECT_ID')
         passcode = os.getenv('CLEVERTAP_PASSCODE')
 
         if not project_id or not passcode:
-            logger.error("CleverTap credentials not set")
             return False
 
         url = 'https://api.clevertap.com/1/upload'
 
-        # CleverTap unsubscribe payload
         payload = {
             'd': [{
-                'email': email,
+                'customer_id': int(cust_id),
                 'unsubscribe': {
-                    channel: 1  # 1 = unsubscribed
+                    channel.lower(): 1
                 }
             }]
         }
@@ -171,30 +156,20 @@ def send_to_clevertap(email, channel, user_id=''):
         }
 
         response = requests.post(url, json=payload, headers=headers, timeout=10)
-
-        if response.status_code == 200:
-            logger.info(f"[CLEVERTAP] Successfully unsubscribed {email} from {channel}")
-            return True
-        else:
-            logger.error(f"[CLEVERTAP] Failed: {response.status_code} - {response.text}")
-            return False
+        return response.status_code == 200
     except Exception as e:
-        logger.error(f"[CLEVERTAP] Error: {e}")
+        print(f"CleverTap error: {e}")
         return False
 
-def update_sheet_status(email, status):
-    """Update status in Google Sheets for processed email"""
+def update_sheet_status(cust_id, new_status='Updated'):
+    """Update status in Google Sheets for processed customer"""
     try:
-        sheets_service = get_sheets_service()
-        if not sheets_service:
-            return False
-
+        sheets = get_sheets_service()
         sheet_id = os.getenv('SHEET_ID')
-        if not sheet_id:
+        if not sheets or not sheet_id:
             return False
 
-        # Read all rows to find matching email
-        result = sheets_service.spreadsheets().values().get(
+        result = sheets.spreadsheets().values().get(
             spreadsheetId=sheet_id,
             range='Sheet1!A2:D'
         ).execute()
@@ -202,46 +177,44 @@ def update_sheet_status(email, status):
         rows = result.get('values', [])
 
         for idx, row in enumerate(rows):
-            if len(row) > 0 and row[0] == email:
-                # Update status in row (idx+2 because row 1 is header, idx is 0-based)
+            if len(row) > 1 and str(row[1]) == str(cust_id):
                 row_num = idx + 2
-                sheets_service.spreadsheets().values().update(
+                sheets.spreadsheets().values().update(
                     spreadsheetId=sheet_id,
-                    range=f'Sheet1!C{row_num}',
+                    range=f'Sheet1!D{row_num}',
                     valueInputOption='RAW',
-                    body={'values': [[status]]}
+                    body={'values': [[new_status]]}
                 ).execute()
-                logger.info(f"[SHEETS] Updated {email} status to '{status}'")
                 return True
 
         return False
     except Exception as e:
-        logger.error(f"[SHEETS] Update error: {e}")
+        print(f"Sheet update error: {e}")
         return False
 
 @app.route('/api/trigger', methods=['POST'])
 def trigger():
-    """Manually trigger unsubscribe processing"""
     if not current_user.is_authenticated:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return {'error': 'Unauthorized'}, 401
 
     try:
-        pending = get_pending_unsubscribes()
+        stats = get_unsubscribe_stats()
+        pending_rows = [row for row in stats.get('activity', []) if row['status'].lower() != 'updated']
+
         processed = 0
         failed = 0
 
-        for item in pending:
-            if item['status'].lower() != 'updated':
-                email = item['email']
-                channel = item['channel']
+        for item in pending_rows:
+            cust_id = item['email']  # email field contains Cust ID
+            channel = item['channel']
 
-                if send_to_clevertap(email, channel, item.get('user_id', '')):
-                    if update_sheet_status(email, 'Updated'):
-                        processed += 1
-                    else:
-                        failed += 1
+            if send_to_clevertap(cust_id, channel):
+                if update_sheet_status(cust_id, 'Updated'):
+                    processed += 1
                 else:
                     failed += 1
+            else:
+                failed += 1
 
         return jsonify({
             'message': f'Success! {processed} processed, {failed} failed',
@@ -249,16 +222,14 @@ def trigger():
             'failed': failed
         }), 200
     except Exception as e:
-        logger.error(f"[TRIGGER] Error: {e}")
+        print(f"Trigger error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/logout')
 def logout():
     logout_user()
-    return redirect(url_for('index'))
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
-    is_production = os.getenv('RAILWAY_ENVIRONMENT') is not None
     port = int(os.getenv('PORT', 8000))
-    logger.info(f"[STARTUP] Starting on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)

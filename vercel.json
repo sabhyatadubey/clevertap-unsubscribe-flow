@@ -1,0 +1,9 @@
+{
+  "buildCommand": "pip install -r requirements.txt",
+  "devCommand": "python app.py",
+  "framework": "flask",
+  "installCommand": "pip install -r requirements.txt",
+  "env": {
+    "PYTHON_VERSION": "3.9"
+  }
+}

@@ -1,2 +1,10 @@
 .env
+.env.local
+.env.*.local
 service_account.json
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+.vercel
