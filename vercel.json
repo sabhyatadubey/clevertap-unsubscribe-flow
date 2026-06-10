@@ -3,10 +3,5 @@
   "devCommand": "python app.py",
   "env": {
     "PYTHON_VERSION": "3.9"
-  },
-  "functions": {
-    "api/index.py": {
-      "maxDuration": 30
-    }
   }
 }
