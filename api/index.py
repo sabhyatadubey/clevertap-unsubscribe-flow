@@ -1,7 +1,12 @@
 import os
+import sys
 import json
 import base64
 import requests
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from flask import Flask, render_template, redirect, url_for, jsonify, request
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -12,7 +17,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = Flask(__name__, template_folder='../templates', static_folder='../static')
+template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
+app = Flask(__name__, template_folder=template_dir)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -47,7 +53,7 @@ def index():
 
 @app.route('/login')
 def login():
-    if 'localhost' in request.host or '127.0.0.1' in request.host:
+    if 'localhost' in request.host or '127.0.0.1' in request.host or '0.0.0.0' in request.host:
         login_user(User('sabhy@justlife.com'))
         return redirect(url_for('dashboard'))
     return google.authorize_redirect(url_for('authorize', _external=True, _scheme='https'))
