@@ -1,12 +1,7 @@
 import os
-import sys
 import json
 import base64
 import requests
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from flask import Flask, render_template, redirect, url_for, jsonify, request
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -17,7 +12,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Proper path handling for Vercel
+import sys
+from pathlib import Path
 template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
+
 app = Flask(__name__, template_folder=template_dir)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
 app.config['PREFERRED_URL_SCHEME'] = 'https'
@@ -53,7 +52,7 @@ def index():
 
 @app.route('/login')
 def login():
-    if 'localhost' in request.host or '127.0.0.1' in request.host or '0.0.0.0' in request.host:
+    if 'localhost' in request.host or '127.0.0.1' in request.host:
         login_user(User('sabhy@justlife.com'))
         return redirect(url_for('dashboard'))
     return google.authorize_redirect(url_for('authorize', _external=True, _scheme='https'))
@@ -82,7 +81,7 @@ def get_sheets_service():
             scopes=['https://www.googleapis.com/auth/spreadsheets']
         )
         return build('sheets', 'v4', credentials=credentials)
-    except:
+    except Exception as e:
         return None
 
 def get_unsubscribe_stats():
@@ -121,7 +120,6 @@ def get_unsubscribe_stats():
             'activity': activity[-10:]
         }
     except Exception as e:
-        print(f"Error in get_unsubscribe_stats: {e}")
         return {'total_pending': 0, 'completed': 0, 'activity': []}
 
 @app.route('/dashboard')
@@ -158,7 +156,6 @@ def send_to_clevertap(cust_id, channel):
         response = requests.post(url, json=payload, headers=headers, timeout=10)
         return response.status_code == 200
     except Exception as e:
-        print(f"CleverTap error: {e}")
         return False
 
 def update_sheet_status(cust_id, new_status='Updated'):
@@ -188,7 +185,6 @@ def update_sheet_status(cust_id, new_status='Updated'):
 
         return False
     except Exception as e:
-        print(f"Sheet update error: {e}")
         return False
 
 @app.route('/api/trigger', methods=['POST'])
@@ -221,7 +217,6 @@ def trigger():
             'failed': failed
         }), 200
     except Exception as e:
-        print(f"Trigger error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/logout')
@@ -229,5 +224,5 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# Export app for Vercel
-export = app
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8000)), debug=False)
