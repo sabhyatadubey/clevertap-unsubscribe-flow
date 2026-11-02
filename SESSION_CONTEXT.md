@@ -1,5 +1,10 @@
 # CleverTap Unsubscribe Flow - Session Context
 
+> **⚠️ Superseded (Nov 2, 2026):** The Friday Vercel cron has been removed. This app's CleverTap
+> payload (`customer_id` + `unsubscribe`) isn't the Upload API format, so rows could be marked
+> "Updated" without the user being unsubscribed. Unsubscribes now run from the Apps Script
+> dashboard in `../clevertap-unsubscribe-sheet` (uses `identity` + `profileData` MSG-* flags).
+
 **Project Status:** ✅ Complete & Deployed to Vercel  
 **Last Updated:** June 10, 2026  
 **Live URL:** https://clevertap-unsubscribe-flow.vercel.app
